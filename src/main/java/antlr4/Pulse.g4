@@ -1,143 +1,138 @@
 grammar Pulse;
 
-prog: (stat NEWLINE*)* stat?;
+prog: stat*;
 
-stat: istc
-    | expr
-    | VAR ASG expr
-    | NEWLINE
+stat: (st_import SEMICOLON)
+    | (asg_expression SEMICOLON)
+    | (function_call SEMICOLON)
     ;
 
-istc: PRINT muex
-    | IMPORT muex
-    | ifst
-    | forst
-    | whlst
-    | funst
-    ;
 
-muex: expr (COMMA expr)*;
-muvar: VAR (COMMA VAR)*;
+// STATEMENTS
+st_import: (IMPORT import_entities_array FROM STRING)
+         | (IMPORT VARIABLE FROM STRING USING VARIABLE)
+         ;
 
-ifst: IF expr NEWLINE* blck (NEWLINE* ELSE (ifst|blck))?;
-forst: FOR inExpr NEWLINE* blck;
-whlst: WHILE eqlExpr NEWLINE* blck;
-funst: FUNCTION VAR (LPAREN muvar RPAREN)? NEWLINE* blck;
+import_entities_array: LBRACKET (VARIABLE COMMA)* VARIABLE? RBRACKET;
 
 
-inExpr: LPAREN? VAR IN ranExpr RPAREN?
-      | LPAREN? VAR DICASG VAR IN ranExpr RPAREN?;
+// EXPRESSIONS
+asg_expression: VARIABLE ASG add_sous_expression;
 
-blck: LBRACE stat* RBRACE;
+add_sous_expression: (mul_div_mod_expression (ADD add_sous_expression)?)
+                   | (mul_div_mod_expression (HYP add_sous_expression)?)
+                   ;
 
-dict: DICT NEWLINE* (dicasg NEWLINE* (COMMA NEWLINE* dicasg NEWLINE*)*)? NEWLINE* RBRACE;
-dicasg: VAR NEWLINE* (DICASG|ASG) NEWLINE* expr;
+mul_div_mod_expression: (pow_expression (MOD mul_div_mod_expression)?)
+                      | (pow_expression (MUL mul_div_mod_expression)?)
+                      | (pow_expression (DIV mul_div_mod_expression)?)
+                      ;
 
-list: LBRACE NEWLINE* (expr NEWLINE* (COMMA NEWLINE* expr NEWLINE*)*)? RBRACE;
+pow_expression: or_expression (POW pow_expression)?;
 
-funcall: VAR LPAREN muex? RPAREN;
+or_expression: xor_expression (OR or_expression)?;
+xor_expression: and_expression (XOR xor_expression)?;
+and_expression: expression (AND and_expression)?;
 
-expr: ranExpr;
+comp_expression: (expression (LESS comp_expression)?)
+               | (expression (LESS_EQ comp_expression)?)
+               | (expression (GREATER comp_expression)?)
+               | (expression (GREATER_EQ comp_expression)?)
+               ;
 
-ranExpr: eqlExpr | addExpr RANGE addExpr;
-eqlExpr: orExpr (EQL orExpr
-                 | NEQ orExpr
-                 | STS orExpr
-                 | SEQ orExpr
-                 | IFS orExpr
-                 | IEQ orExpr)*;
-orExpr: andExpr (OR andExpr)*;
-andExpr: xorExpr (AND xorExpr)*;
-xorExpr: addExpr (XOR addExpr)*;
-addExpr: mulExpr ((ADD|SUB) mulExpr)*;
-mulExpr: powExpr ((MUL|DIV|MOD) powExpr)*;
-powExpr: funExpr (POW funExpr)*;
-funExpr: funcall | base;
+expression: STRING
+          | VARIABLE
+          | INTEGER
+          | FLOAT
+          | LPAREN (asg_expression|function_call) RPAREN
+          ;
 
-base: list
-    | dict
-    | STRING
-    | INT
-    | FLOAT
-    | BOOL
-    | NULL
-    | LPAREN expr RPAREN
-    | VAR
-    ;
 
-// Keywords
-FUNCTION: 'function' WS;
+// FUNCTIONS - OOP
+function_call: VARIABLE function_arguments;
+function_arguments: LPAREN ((asg_expression COMMA)* asg_expression)? RPAREN;
 
-IMPORT: 'import' WS;
 
-PRINT: 'print' WS;
+// KEYWORDS
+IMPORT: 'import';
+FROM: 'from';
+USING: 'using';
 
-IF: 'if';
-ELSE: 'else';
+MOD_KW: 'mod';
+POW_KW: 'pow';
 
-FOR: 'for';
-IN: 'in';
 
-WHILE: 'while';
+// NATIVE TYPES SYNTAX
+STRING: (DBLQUOTE ANY DBLQUOTE)
+      | (SMPQUOTE ANY SMPQUOTE)
+      ;
 
-// Range
-RANGE: '..' | WS 'to' WS;
+VARIABLE: (LETTER|UNDSCORE)+ (LETTER|DIGIT|UNDSCORE)*;
 
-// Lists and Dictionaries
-DICT: 'd' LBRACE;
-DICASG: '->' | ':';
+INTEGER: DIGIT+;
 
-// Types
-STRING: '"' ANY '"';
-BOOL: 'true'|'false';
-NULL: 'null';
-VAR: LETTER+;
-INT: SUB? DIGIT+;
-FLOAT: SUB? DIGIT+ '.' DIGIT+;
+FLOAT: (DIGIT* PERIOD DIGIT+)
+     | (DIGIT+ PERIOD DIGIT*)
+     ;
 
-// Characters
-NEWLINE: [\r\n]+;
+
+// SPECIAL
 ANY: .*?;
 
-// Fragments
-fragment DIGIT: [0-9];
-fragment LETTER: [a-zA-Z];
 
-// Boolean operators
-AND: '&&' | WS 'and' WS;
-OR: '||' | WS 'or' WS;
-XOR: '^^' | WS 'xor' WS;
+// CHARACTERS
+COMMA: ',';
+SEMICOLON: ';';
+PERIOD: '.';
 
-// Boolean equality operators
-EQL: '==';
-NEQ: '!=';
-STS: '>';
-SEQ: '>=';
-IFS: '<';
-IEQ: '<=';
-
-// Arithmetic operators
-POW: '^' | '**' | WS 'pow' WS;
-MOD: '%' | WS 'mod' WS;
-MUL: '*';
-DIV: '/';
-ADD: '+';
-SUB: '-';
-ASG: '=';
-
-// Priority operators
 LPAREN: '(';
 RPAREN: ')';
 
-// Blocks
+LBRACKET: '[';
+RBRACKET: ']';
+
 LBRACE: '{';
 RBRACE: '}';
 
+DBLQUOTE: '"';
+SMPQUOTE: '\'';
 
-// Multi Values
-COMMA: ',';
+// Boolean comparison operators
+EQUALS: '==';
+NOT_EQUALS: '!=';
+
+LESS: '<';
+LESS_EQ: '<=';
+GREATER: '>';
+GREATER_EQ: '>=';
+
+// Boolean operators
+AND: '&&' | (WS 'and' WS);
+OR: '||' | (WS 'or' WS);
+XOR: '^' | (WS 'xor' WS);
+
+// Arithmetic operators
+ADD: '+';
+HYP: '-';
+MUL: '*';
+DIV: '/';
+MOD: '%' | (WS MOD_KW WS);
+POW: '**' | (WS POW_KW WS);
+
+UNDSCORE: '_';
+
+NOT: '!';
+
+ASG: '=';
+
+
+// FRAGMENTS
+fragment LETTER: [a-zA-Z];
+fragment DIGIT: [0-9];
+
 
 // SKIP AND HIDDEN-CHANNEL rules
+NEWLINE: [\n\r]             -> channel(HIDDEN);  // TODO: take a look to alternative of HIDDEN channel!!
 WS: [ \t]+                  -> channel(HIDDEN);
 
 ILCOM: '//' ANY NEWLINE     -> channel(HIDDEN);
